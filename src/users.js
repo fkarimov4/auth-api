@@ -1,3 +1,4 @@
+const jwt = require("jsonwebtoken");
 const { connectDb } = require("./dbConnect");
 
 exports.createUser = (req, res) => {
@@ -28,10 +29,11 @@ exports.createUser = (req, res) => {
         userRole: 5,
       };
       // TODO: create a JWT and send back the token
+      const token = jwt.sign(user, "doNotShareYourSecret"); // Protect this secret
       res.status(201).send({
         success: true,
         message: "Account created",
-        token: user, //add this to token later
+        token,
       });
     })
     .catch((err) => {
@@ -73,10 +75,11 @@ exports.loginUser = (req, res) => {
         user.password = undefined;
         return user;
       });
+      const token = jwt.sign(users[0], "doNotShareYourSecret");
       res.send({
         success: true,
         message: "Login successful!!",
-        token: users[0],
+        token,
       });
     })
     .catch((err) => {
@@ -89,7 +92,22 @@ exports.loginUser = (req, res) => {
 };
 
 exports.getUsers = (req, res) => {
+  // First make sure the user sent authorization token
+  if (!req.headers.authorization) {
+    return res.status(403).send({
+      success: false,
+      message: "No authorization token found",
+    });
+  }
   //TODO: Protect this route with JWT
+  const decode = jwt.verify(req.headers.authorization, "doNotShareYourSecret");
+  console.log("New Request By:", decode.email);
+  if (decode.userRole > 5) {
+      return res.status(401).send({
+          success: false,
+          message: 'Not authorized'
+      })
+  }
   const db = connectDb();
   db.collection("users")
     .get()
@@ -101,10 +119,10 @@ exports.getUsers = (req, res) => {
         return user;
       });
       res.send({
-          success: true,
-          message: "Users returned",
-          users
-      })
+        success: true,
+        message: "Users returned",
+        users,
+      });
     })
     .catch((err) => {
       res.status(500).send({
